@@ -335,6 +335,67 @@ run_escalation_flow() {
   echo "                                                "
 }
 
+run_prebuilt_flow() {
+  echo "Running prebuilt flow"
+  wait_project_start
+  echo "Project is ✔️ on ${TARGET_URL}"
+  echo " "
+
+  echo_blue "******** Create Project ********"
+  echo "                                                "
+  PROJECT_ID=$(curl -X 'POST' -s \
+    "${TARGET_URL}/api/v1/projects" \
+    -H 'accept: */*' \
+    -H 'Authorization: Basic dGVzdDp0ZXN0' \
+    -H 'Content-Type: application/json' \
+    -H "X-XSRF-TOKEN: ${TOKEN}" \
+    -b $COOKIEFP \
+    -d '{
+                 "name": "project-1",
+                 "description": "an example project"
+               }' | jq -r '.id')
+  [ ${#PROJECT_ID} -eq "36" ] || @fail "Project ID ${PROJECT_ID} is not present"
+  echo "Project id is " $(echo_green $PROJECT_ID)
+
+  echo_blue "******** Running The Prebuilt Flow ********"
+  echo "                                                  "
+  echo "                                                  "
+  workflow_id=$(get_workflow_id "prebuiltWorkFlowDefinition")
+
+  params='{
+      "projectId": "'$PROJECT_ID'",
+      "workFlowName": "prebuiltWorkFlow_INFRASTRUCTURE_WORKFLOW",
+      "works": [
+          {
+              "workName": "notificationTask",
+              "arguments": [
+                  {
+                    "key": "type",
+                    "value": "test-type"
+                  },
+                  {
+                    "key": "body",
+                    "value": "test body"
+                  },
+                  {
+                    "key": "subject",
+                    "value": "test subject"
+                  },
+                  {
+                    "key": "userNames",
+                    "value": "test"
+                  }
+              ]
+          }
+      ]
+    }'
+  response=$(execute_workflow "$params" "COMPLETED")
+  echo "workflow finished successfully with response: $response"
+  echo "                                                "
+  echo_blue "******** Prebuilt Flow Completed ********"
+  echo "                                                "
+}
+
 
 if [ $# -eq 0 ]; then
   run_escalation_flow
@@ -353,6 +414,17 @@ case $1 in
   "simple")
     run_simple_flow
     ;;
+
+  "prebuilt")
+    run_prebuilt_flow
+    ;;
+
+  "all")
+      run_escalation_flow
+      run_complex_flow
+      run_simple_flow
+      run_prebuilt_flow
+      ;;
   *)
     echo_red "##### Unsupported argument #####"
     echo "Options: escalation (default) , complex, simple"
