@@ -31,7 +31,10 @@ public class NotificationWorkFlowTask extends BaseWorkFlowTask {
 	private final NotificationMessageApi apiInstance;
 
 	public NotificationWorkFlowTask(String basePath) {
-		ApiClient apiClient = Configuration.getDefaultApiClient();
+		this(basePath, Configuration.getDefaultApiClient());
+	}
+
+	protected NotificationWorkFlowTask(String basePath, ApiClient apiClient) {
 		apiClient.addDefaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + CredUtils.getBase64Creds("test", "test"));
 		apiClient.setBasePath(basePath); // basePath = "http://localhost:8080"
 		this.apiInstance = new NotificationMessageApi(apiClient);
