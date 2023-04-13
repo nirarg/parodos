@@ -77,5 +77,17 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>dev.parodos</groupId>
+            <artifactId>notification-service-sdk</artifactId>
+            <version>${revision}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+            <version>5.3.26</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>
