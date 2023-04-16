@@ -31,13 +31,17 @@ public class NotificationWorkFlowTask extends BaseWorkFlowTask {
 	private final NotificationMessageApi apiInstance;
 
 	public NotificationWorkFlowTask(String basePath) {
-		this(basePath, Configuration.getDefaultApiClient());
+		this(basePath, null);
 	}
 
-	protected NotificationWorkFlowTask(String basePath, ApiClient apiClient) {
-		apiClient.addDefaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + CredUtils.getBase64Creds("test", "test"));
-		apiClient.setBasePath(basePath); // basePath = "http://localhost:8080"
-		this.apiInstance = new NotificationMessageApi(apiClient);
+	protected NotificationWorkFlowTask(String basePath, NotificationMessageApi apiInstance) {
+		if (apiInstance == null) {
+			ApiClient apiClient = Configuration.getDefaultApiClient();
+			apiClient.addDefaultHeader(HttpHeaders.AUTHORIZATION, "Basic " + CredUtils.getBase64Creds("test", "test"));
+			apiClient.setBasePath(basePath); // basePath = "http://localhost:8080"
+			apiInstance = new NotificationMessageApi(apiClient);
+		}
+		this.apiInstance = apiInstance;
 	}
 
 	@Override
@@ -103,7 +107,7 @@ public class NotificationWorkFlowTask extends BaseWorkFlowTask {
 		if (str == null) {
 			return null;
 		}
-		return Arrays.asList(str.split("\\s*,\\s*"));
+		return Arrays.asList(str.split("\\s*;\\s*"));
 	}
 
 }

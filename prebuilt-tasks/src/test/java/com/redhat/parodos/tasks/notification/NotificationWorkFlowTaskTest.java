@@ -1,40 +1,239 @@
 package com.redhat.parodos.tasks.notification;
 
-import com.redhat.parodos.tasks.tibco.TibcoWorkFlowTask;
+import com.redhat.parodos.notification.sdk.api.ApiException;
+import com.redhat.parodos.notification.sdk.api.NotificationMessageApi;
+import com.redhat.parodos.notification.sdk.model.NotificationMessageCreateRequestDTO;
 import com.redhat.parodos.workflow.context.WorkContextDelegate;
+import com.redhat.parodos.workflow.exception.MissingParameterException;
 import com.redhat.parodos.workflows.work.WorkContext;
 import com.redhat.parodos.workflows.work.WorkReport;
 import com.redhat.parodos.workflows.work.WorkStatus;
+import lombok.SneakyThrows;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import javax.jms.JMSException;
-
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.*;
 
 public class NotificationWorkFlowTaskTest {
 
-    private final static NotificationWorkFlowTask task = new NotificationWorkFlowTask("http://localhost:8080");
+    private static NotificationMessageApi apiInstanceMock;
+    private static NotificationWorkFlowTask underTest;
+    private static WorkContext ctx;
+
+    @Before
+    public void setUp() {
+        apiInstanceMock = Mockito.mock(NotificationMessageApi.class);
+        underTest = new NotificationWorkFlowTask("http://localhost:8080", apiInstanceMock);
+        underTest.setBeanName("notificationWorkFlowTask");
+        ctx = new WorkContext();
+    }
     @Test
-    public void testExecute() {
-        WorkContext ctx = getWorkContext();
-        WorkReport result = task.execute(ctx);
+    @SneakyThrows
+    public void testExecuteSuccess() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                "test-body",
+                "test-subject",
+                Arrays.asList("test-user-1", "test-user-2"),
+                Arrays.asList("test-group-1", "test-group-2")
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.COMPLETED, result.getStatus());
+        verify(apiInstanceMock, Mockito.times(1)).create(dto);
     }
 
-    private WorkContext getWorkContext() {
-        WorkContext ctx = new WorkContext();
-        HashMap<String, String> map = new HashMap<>();
-        map.put("type", "test-type");
-        map.put("body", "test-body");
-        map.put("subject", "test-subject");
-        map.put("userNames", "test-user-1;test-user-2");
-        map.put("groupNames", "test-group-1;test-group-2");
+    @Test
+    @SneakyThrows
+    public void testExecuteApiCreateExceptionErr() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                "test-body",
+                "test-subject",
+                Arrays.asList("test-user-1", "test-user-2"),
+                Arrays.asList("test-group-1", "test-group-2")
+        );
+        putParamsToCtx(dto, ctx);
 
-        WorkContextDelegate.write(ctx, WorkContextDelegate.ProcessType.WORKFLOW_TASK_EXECUTION, task.getName(),
+        doThrow(ApiException.class).when(apiInstanceMock).create(dto);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.FAILED, result.getStatus());
+        assertEquals(ApiException.class, result.getError().getClass());
+        verify(apiInstanceMock, Mockito.times(1)).create(dto);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testExecuteMissingTypeErr() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                null,
+                "test-body",
+                "test-subject",
+                Arrays.asList("test-user-1", "test-user-2"),
+                Arrays.asList("test-group-1", "test-group-2")
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.FAILED, result.getStatus());
+        assertEquals(MissingParameterException.class, result.getError().getClass());
+        verify(apiInstanceMock, Mockito.times(0)).create(dto);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testExecuteMissingBodyErr() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                null,
+                "test-subject",
+                Arrays.asList("test-user-1", "test-user-2"),
+                Arrays.asList("test-group-1", "test-group-2")
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.FAILED, result.getStatus());
+        assertEquals(MissingParameterException.class, result.getError().getClass());
+        verify(apiInstanceMock, Mockito.times(0)).create(dto);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testExecuteMissingSubjectErr() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                "test-body",
+                null,
+                Arrays.asList("test-user-1", "test-user-2"),
+                Arrays.asList("test-group-1", "test-group-2")
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.FAILED, result.getStatus());
+        assertEquals(MissingParameterException.class, result.getError().getClass());
+        verify(apiInstanceMock, Mockito.times(0)).create(dto);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testExecuteMissingUsernamesSuccess() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                "test-body",
+                "test-subject",
+                null,
+                Arrays.asList("test-group-1", "test-group-2")
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.COMPLETED, result.getStatus());
+        verify(apiInstanceMock, Mockito.times(1)).create(dto);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testExecuteMissingGroupNamesSuccess() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                "test-body",
+                "test-subject",
+                Arrays.asList("test-user-1", "test-user-2"),
+                null
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.COMPLETED, result.getStatus());
+        verify(apiInstanceMock, Mockito.times(1)).create(dto);
+    }
+
+    @Test
+    @SneakyThrows
+    public void testExecuteMissingUsernamesAndGroupNamesErr() {
+        NotificationMessageCreateRequestDTO dto = buildNotificationMessageCreateRequestDTO(
+                "test-type",
+                "test-body",
+                "test-subject",
+                null,
+                null
+        );
+        putParamsToCtx(dto, ctx);
+
+        WorkReport result = underTest.execute(ctx);
+
+        assertEquals(WorkStatus.FAILED, result.getStatus());
+        assertEquals(MissingParameterException.class, result.getError().getClass());
+        verify(apiInstanceMock, Mockito.times(0)).create(dto);
+    }
+
+    private NotificationMessageCreateRequestDTO buildNotificationMessageCreateRequestDTO(
+            String type,
+            String body,
+            String subject,
+            List<String> usernames,
+            List<String> groupnames
+
+    ) {
+        NotificationMessageCreateRequestDTO notificationMessageCreateRequestDTO = new NotificationMessageCreateRequestDTO();
+
+        notificationMessageCreateRequestDTO.messageType(type);
+        notificationMessageCreateRequestDTO.body(body);
+        notificationMessageCreateRequestDTO.subject(subject);
+        notificationMessageCreateRequestDTO.usernames(usernames);
+        notificationMessageCreateRequestDTO.groupnames(groupnames);
+
+        return notificationMessageCreateRequestDTO;
+    }
+
+    private void putParamsToCtx(NotificationMessageCreateRequestDTO dto, WorkContext ctx) {
+        HashMap<String, String> map = new HashMap<>();
+
+        putInMap(map, "type", dto.getMessageType());
+        putInMap(map, "body", dto.getBody());
+        putInMap(map, "subject", dto.getSubject());
+        putInMap(map, "userNames", listToString(dto.getUsernames()));
+        putInMap(map, "groupNames", listToString(dto.getGroupnames()));
+
+        WorkContextDelegate.write(ctx, WorkContextDelegate.ProcessType.WORKFLOW_TASK_EXECUTION, underTest.getName(),
                 WorkContextDelegate.Resource.ARGUMENTS, map);
-        return ctx;
+    }
+
+    private void putInMap(HashMap<String, String> map, String key, String value) {
+        if (value != null) {
+            map.put(key, value);
+        }
+    }
+
+    private String listToString(List<String> usernames) {
+        if (usernames == null) {
+            return null;
+        }
+        String result = "";
+        for (int i=0; i<usernames.size(); i++) {
+            if (i > 0) {
+                result = result + ";";
+            }
+            result = result + usernames.get(i);
+        }
+        return result;
     }
 }
